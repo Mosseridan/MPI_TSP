@@ -10,20 +10,21 @@
 // building the executable.
 int tsp_main(int citiesNum, int xCoord[], int yCoord[], int shortestPath[]);
 
+
 // NOTE: you can change this file for your own testing, but you should not
 // submit the modified file -
 // your solution is going to be tested with a different main file.
 int main(int argc, char** argv)
 {
 	// example input, with 18 cities. set citiesNum to less for an easier start.
-	int citiesNum = 18;
+	int citiesNum = 11;
 	int xCoord[] = {1, 3, 5, 9, 2,  3,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1};
 	int yCoord[] = {1, 3, 5, 7, 9, 11, 13, 15, 17, 20, 22, 24, 26, 27, 29, 30, 31, 32};
 	int* shortestPath = malloc(citiesNum * sizeof(int));
 	int i, myRank, minPathLen;
 	MPI_Init(&argc, &argv);      // initialize MPI - no need to do that in your code!
 	MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
-	
+
 	// run the computation. on the static solution, tsp_main should be implemented
 	// in tsp_static.c, while on the dynamic solution, tsp_main should be in tsp.c.
 	clock_t begin = clock();
