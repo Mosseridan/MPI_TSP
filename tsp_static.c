@@ -201,8 +201,6 @@ void TSPRec(int currBound, int currWeight, int level, int currPath[])
 				// printf("\n!![%d] Found new shortest path that is %d long\n",myRank,currRes);
 				for (int i= 0; i < citiesNum; i++)
 						shortestPath[i] = currPath[i];
-				shortestPath[citiesNum] = currPath[0];
-
         shortestRes = currRes;
       }
     }
@@ -303,8 +301,6 @@ int tsp_main(int _citiesNum, int _xCoord[], int _yCoord[], int _shortestPath[])
 	// }
 	// printf("\n\n");
 	// fflush(stdout);
-
-
 
 	int start = myRank * nIters;
 	int end = (myRank == nProcs-1 ? citiesNum : start + nIters);

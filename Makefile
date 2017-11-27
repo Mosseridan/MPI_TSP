@@ -35,4 +35,4 @@ run_tsp: tsp
 
 run_tsp_static: tsp_static
 	@echo "Running static implementation: tsp_static"
-	mpirun -np 4 tsp_static
+	mpirun -np 2 tsp_static
