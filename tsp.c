@@ -158,30 +158,30 @@ void TSPRec(
 	// printf("!!![%d] probing\n\n",myRank);
 	while (!MPI_Iprobe(MPI_ANY_SOURCE, NEW_MIN_TAG, MPI_COMM_WORLD, &flag, &probeStatus) && flag)
 	{
-		fflush(stdout);
-		printf("###[%d] probed from %d\n\n",myRank, probeStatus.MPI_SOURCE);
-		fflush(stdout);
+		// fflush(stdout);
+		// printf("###[%d] probed from %d\n\n",myRank, probeStatus.MPI_SOURCE);
+		// fflush(stdout);
 		struct{
 			int minWeight;
 			int minPath[citiesNum];
 		} result;
 
 		MPI_Recv(&result, 1, resultType, probeStatus.MPI_SOURCE, NEW_MIN_TAG, MPI_COMM_WORLD, &recvStatus);
-		fflush(stdout);
-		// printf("!!![%d] got path:\n",myRank);
-		// printPath(citiesNum, result.minPath, citiesNum, xCoord, yCoord);
-		printf("$$$[%d] got path with weight (%d) from [%d]\n\n",myRank,result.minWeight,recvStatus.MPI_SOURCE);
-		fflush(stdout);
+		// fflush(stdout);
+		// // printf("!!![%d] got path:\n",myRank);
+		// // printPath(citiesNum, result.minPath, citiesNum, xCoord, yCoord);
+		// printf("$$$[%d] got path with weight (%d) from [%d]\n\n",myRank,result.minWeight,recvStatus.MPI_SOURCE);
+		// fflush(stdout);
 		if (result.minWeight < *minWeight)
 		{
 			memcpy(minPath, result.minPath, citiesNum*sizeof(int));
 			*minWeight = result.minWeight;
 
-			fflush(stdout);
-			// printf("@@@[%d] updated minPath to:\n",myRank);
-			// printPath(citiesNum, minPath, citiesNum, xCoord, yCoord);
-			printf("@@@[%d] updated minPath to weight (%d)\n\n",myRank,*minWeight);
-			fflush(stdout);
+			// fflush(stdout);
+			// // printf("@@@[%d] updated minPath to:\n",myRank);
+			// // printPath(citiesNum, minPath, citiesNum, xCoord, yCoord);
+			// printf("@@@[%d] updated minPath to weight (%d)\n\n",myRank,*minWeight);
+			// fflush(stdout);
 		}
 	}
 
@@ -215,25 +215,26 @@ void TSPRec(
 				memcpy(minPath, currentPath, citiesNum*sizeof(int));
 				*minWeight = currentWeight;
 				// printf("@@@[%d] broadcasting\n\n",myRank);
-				MPI_Request requests[nProcs-1];
-				MPI_Status status, statuses[nProcs-1];
+				MPI_Request requests[nProcs-2];
+				MPI_Status statuses[nProcs-2];
 				// MPI_Ibcast(minPath, 1, resultType, myRank, MPI_COMM_WORLD,&request);
 				// MPI_Ibcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, MPI_Request *request)
 
-				fflush(stdout);
-				// printf("!!![%d] sending path:\n",myRank);
-				// printPath(citiesNum, minPath, citiesNum, xCoord, yCoord);
-				printf("!!![%d] sending path with weight (%d) \n\n",myRank,*minWeight);
-				fflush(stdout);
+				// fflush(stdout);
+				// // printf("!!![%d] sending path:\n",myRank);
+				// // printPath(citiesNum, minPath, citiesNum, xCoord, yCoord);
+				// printf("!!![%d] sending path with weight (%d) \n\n",myRank,*minWeight);
+				// fflush(stdout);
 
-				for(int proc = 1; proc < nProcs; proc++)
+				for (int proc = 1; proc < myRank; proc++)
 				{
-					MPI_Isend(minWeight, 1, resultType, proc, NEW_MIN_TAG, MPI_COMM_WORLD, requests+proc);
+					MPI_Isend(minWeight, 1, resultType, proc, NEW_MIN_TAG, MPI_COMM_WORLD, requests+proc-1);
 				}
-				// MPI_Recv(minPath, 1, resultType, myRank, NEW_MIN_TAG, MPI_COMM_WORLD, &status);
-				// printf("$$$[%d] started waitall\n\n",myRank);
-				// MPI_Waitall(nProcs-1, requests, statuses);
-				// printf("$$$[%d] done waitall\n\n",myRank);
+				for (int proc = myRank+1; proc < nProcs; proc++)
+				{
+					MPI_Isend(minWeight, 1, resultType, proc, NEW_MIN_TAG, MPI_COMM_WORLD, requests+proc-2);
+				}
+				MPI_Waitall(nProcs-2, requests, statuses);
       }
     }
     return;
