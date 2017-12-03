@@ -27,11 +27,13 @@ void TSPRec(
 	int* xCoord,
 	int* yCoord);
 
+
 // comptes the distants value (Weight) between cities i,j
 int dist(int i, int j, int* xCoord, int* yCoord)
 {
 	return abs(xCoord[i] - xCoord[j]) + abs(yCoord[i] - yCoord[j]);
 }
+
 
 // finds the first and second minimum edge costs
 // having an end at the vertex i
@@ -45,7 +47,6 @@ int findMinEdges(int* first, int* second, int i, int citiesNum, int* xCoord, int
 			continue;
 
 		int distance = dist(i, j, xCoord, yCoord);
-		// // printf("Distance between %d and %d is %d\n",i,j,distance);
 		if (distance <= *first)
 		{
 			*second = *first;
@@ -57,18 +58,6 @@ int findMinEdges(int* first, int* second, int i, int citiesNum, int* xCoord, int
 		}
 	}
 	return *first;
-}
-
-void printPath(int length, int* path, int citiesNum, int* xCoord, int* yCoord){
-	fflush(stdout);
-	printf("!!![%d] ",myRank);
-	for (int i = 0; i < length-1; i++)
-	{
-		// print the city (and its distance from the next city in the path)
-		printf("%d (%d) ", path[i], dist(path[i],path[(i + 1) % citiesNum], xCoord, yCoord));
-	}
-	printf("%d \n",(path[length-1] % citiesNum));
-	fflush(stdout);
 }
 
 
@@ -93,23 +82,19 @@ void computeBranch(
 	// already)
 	if(distance != 0 && !visited[i])
 	{
-
-		// // printf("!![%d] Trying: ",myRank);
-		// printcurrentPath(citiesNum,xCoord,yCoord,level,currentPath);
-		// // printf(" -> (%d) %d \n",distance,i);
-
 		currentWeight += distance;
-		// // printf("@@@@ from: %d, to: %d, distance: %d, currentWeight: %d, newWeight: %d\n",currentPath[level-1], i,distance, currentWeight, newWeight);
 		int firstMin, secondMin, prevFirstMin, prevSecondMin;
 		findMinEdges(&firstMin, &secondMin, i, citiesNum, xCoord, yCoord);
 		findMinEdges(&prevFirstMin, &prevSecondMin, currentPath[level-1], citiesNum, xCoord, yCoord);
 
 		// different computation of curr_bound for
 		// level 2 from the other levels
-		if (level == 1){
+		if (level == 1)
+		{
 			currentBound -= ((prevFirstMin + firstMin)/2);
 		}
-		else{
+		else
+		{
 			currentBound -= ((prevSecondMin + firstMin)/2);
 		}
 
@@ -125,9 +110,6 @@ void computeBranch(
 
 			// call TSPRec for the next level
 			TSPRec(level+1, currentBound, currentWeight, currentPath, minWeight, minPath, visited, citiesNum, xCoord, yCoord);
-		}
-		else{
-			// // printf("!![%d] %d (newBound) + %d (newWeight) = %d >= %d (minWeight) $$ Cuting branch $$\n\n",myRank,newBound,newWeight,newBound+newWeight,*pminWeight);
 		}
 
 		// Also reset the visited array //TODO might want to deep copy at call instead
@@ -155,49 +137,27 @@ void TSPRec(
 
 	MPI_Status probeStatus, recvStatus;
 	int flag = 0;
-	// printf("!!![%d] probing\n\n",myRank);
+	struct{
+		int minWeight;
+		int minPath[citiesNum];
+	} result;
+
+	// check from new minimal path messages from other workers
 	while (!MPI_Iprobe(MPI_ANY_SOURCE, NEW_MIN_TAG, MPI_COMM_WORLD, &flag, &probeStatus) && flag)
 	{
-		// fflush(stdout);
-		// printf("###[%d] probed from %d\n\n",myRank, probeStatus.MPI_SOURCE);
-		// fflush(stdout);
-		struct{
-			int minWeight;
-			int minPath[citiesNum];
-		} result;
-
 		MPI_Recv(&result, 1, resultType, probeStatus.MPI_SOURCE, NEW_MIN_TAG, MPI_COMM_WORLD, &recvStatus);
-		// fflush(stdout);
-		// // printf("!!![%d] got path:\n",myRank);
-		// // printPath(citiesNum, result.minPath, citiesNum, xCoord, yCoord);
-		// printf("$$$[%d] got path with weight (%d) from [%d]\n\n",myRank,result.minWeight,recvStatus.MPI_SOURCE);
-		// fflush(stdout);
+
 		if (result.minWeight < *minWeight)
 		{
 			memcpy(minPath, result.minPath, citiesNum*sizeof(int));
 			*minWeight = result.minWeight;
-
-			// fflush(stdout);
-			// // printf("@@@[%d] updated minPath to:\n",myRank);
-			// // printPath(citiesNum, minPath, citiesNum, xCoord, yCoord);
-			// printf("@@@[%d] updated minPath to weight (%d)\n\n",myRank,*minWeight);
-			// fflush(stdout);
 		}
 	}
-
-	// fflush(stdout);
-	// // printf("\n@@[%d] TSPRec level: %d, currentWeight: %d, currentBound: %d, minWeight: %d\n",myRank,level,currentWeight, currentBound, minWeight);
-	// printcurrentPath(level,currentPath);
-	// printminPath(minPath);
-	// printVisited();
-	// // printf("\n\n");
-	// fflush(stdout);
 
   // base case is when we have reached level N which
   // means we have covered all the nodes once
   if (level == citiesNum)
   {
-
 		int distance = dist(currentPath[level-1], currentPath[0], xCoord, yCoord);
 
     // check if there is an edge from last vertex in
@@ -211,21 +171,12 @@ void TSPRec(
       // current result is better.
       if (currentWeight < *minWeight)
       {
-				// // printf("\n!![%d] Found new shortest path that is %d long\n",myRank,currRes);
 				memcpy(minPath, currentPath, citiesNum*sizeof(int));
 				*minWeight = currentWeight;
-				// printf("@@@[%d] broadcasting\n\n",myRank);
 				MPI_Request requests[nProcs-2];
 				MPI_Status statuses[nProcs-2];
-				// MPI_Ibcast(minPath, 1, resultType, myRank, MPI_COMM_WORLD,&request);
-				// MPI_Ibcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, MPI_Request *request)
 
-				// fflush(stdout);
-				// // printf("!!![%d] sending path:\n",myRank);
-				// // printPath(citiesNum, minPath, citiesNum, xCoord, yCoord);
-				// printf("!!![%d] sending path with weight (%d) \n\n",myRank,*minWeight);
-				// fflush(stdout);
-
+				// send new minimal path to other all workers
 				for (int proc = 1; proc < myRank; proc++)
 				{
 					MPI_Isend(minWeight, 1, resultType, proc, NEW_MIN_TAG, MPI_COMM_WORLD, requests+proc-1);
@@ -272,16 +223,12 @@ int doMaster(int citiesNum, int* minPath)
 
 	for(int city = 1; city < citiesNum; city++)
 	{
-		// printf("$$$[%d] handling routes that start with %d\n",myRank,city);
 		MPI_Recv(&result, 1, resultType, MPI_ANY_SOURCE, FETCH_JOB_TAG, MPI_COMM_WORLD, &status);
-		// printf("$$$[%d] received fetch request form %d\n",myRank,status.MPI_SOURCE);
 		if(result.minWeight < minWeight)
 		{
-			// printf("$$$[%d] new minWeight: %d, old minWeight: %d\n",myRank,result.minWeight,minWeight);
 			minWeight = result.minWeight;
 			memcpy(minPath, result.minPath, citiesNum*sizeof(int));
 		}
-		// printf("$$$[%d] assigning routes starting with %d to %d\n",myRank,city,status.MPI_SOURCE);
 		job.startingCity = city;
 		job.minWeight = minWeight;
 		MPI_Rsend(&job, 1, jobType, status.MPI_SOURCE, ASSIGN_JOB_TAG, MPI_COMM_WORLD);
@@ -290,14 +237,11 @@ int doMaster(int citiesNum, int* minPath)
 	for(int proc = 1; proc < nProcs; proc++)
 	{
 		MPI_Recv(&result, 1, resultType, MPI_ANY_SOURCE, FETCH_JOB_TAG, MPI_COMM_WORLD, &status);
-		// printf("$$$[%d] received fetch request form %d\n",myRank,status.MPI_SOURCE);
 		if(result.minWeight < minWeight)
 		{
-			// printf("$$$[%d] new minWeight: %d, old minWeight: %d\n",myRank,result.minWeight,minWeight);
 			minWeight = result.minWeight;
 			memcpy(minPath, result.minPath, citiesNum*sizeof(int));
 		}
-		// printf("$$$[%d] sending termination message to %d\n",myRank,status.MPI_SOURCE);
 		MPI_Rsend(&job, 1, jobType, status.MPI_SOURCE, TERMINATE_TAG, MPI_COMM_WORLD);
 	}
 
@@ -353,7 +297,6 @@ int doWorker(int citiesNum, int* xCoord, int* yCoord)
 		MPI_Wait(&request, &status);
 		if(status.MPI_TAG == ASSIGN_JOB_TAG)
 		{
-			// printf("## [%d] got job: %d %d\n",myRank,job.startingCity,job.minWeight);
 			if(job.minWeight < minWeight)
 			{
 				minWeight = job.minWeight;
@@ -368,12 +311,11 @@ int doWorker(int citiesNum, int* xCoord, int* yCoord)
 		}
 		else if (status.MPI_TAG == TERMINATE_TAG)
 		{
-			// printf("## [%d] got termination message\n",myRank);
 			terminate = 1;
 		}
 		else
 		{
-			// printf("## WTF?! got %d tag\n",status.MPI_TAG);
+			printf("## WTF?! got %d tag\n",status.MPI_TAG);
 		}
 	}
 	return minWeight;
