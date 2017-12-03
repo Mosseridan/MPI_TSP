@@ -27,7 +27,7 @@ clean:
 # you may change the number of procs below to use more than 2.
 run_236370: tsp_236370
 	@echo "Running supplied implementation: tsp_236370"
-	mpirun -np 2 tsp_236370
+	mpirun -np 4 tsp_236370
 
 run_tsp: tsp
 	@echo "Running dynamic implementation: tsp"
