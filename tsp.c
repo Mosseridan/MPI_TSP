@@ -59,6 +59,19 @@ int findMinEdges(int* first, int* second, int i, int citiesNum, int* xCoord, int
 	return *first;
 }
 
+void printPath(int length, int* path, int citiesNum, int* xCoord, int* yCoord){
+	fflush(stdout);
+	printf("!!![%d] ",myRank);
+	for (int i = 0; i < length-1; i++)
+	{
+		// print the city (and its distance from the next city in the path)
+		printf("%d (%d) ", path[i], dist(path[i],path[(i + 1) % citiesNum], xCoord, yCoord));
+	}
+	printf("%d \n",(path[length-1] % citiesNum));
+	fflush(stdout);
+}
+
+
 void computeBranch(
 	int i,
 	int level,
@@ -127,13 +140,6 @@ void computeBranch(
 }
 
 
-// function that takes as arguments:
-// curr_bound -> lower bound of the root node
-// curr_weight-> stores the weight of the path so far
-// level-> current level while moving in the search
-//         space tree
-// curr_path[] -> where the solution is being stored which
-//                would later be copied to final_path[]
 void TSPRec(
 	int level,
 	int currentBound,
@@ -146,13 +152,39 @@ void TSPRec(
 	int* xCoord,
 	int* yCoord)
 {
-	MPI_Status status;
-	int flag;
+
+	MPI_Status probeStatus, recvStatus;
+	int flag = 0;
 	// printf("!!![%d] probing\n\n",myRank);
-	MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-	if(flag){
-		printf("###[%d] probed %d from %d\n\n",myRank,status.MPI_TAG, status.MPI_SOURCE);
+	while (!MPI_Iprobe(MPI_ANY_SOURCE, NEW_MIN_TAG, MPI_COMM_WORLD, &flag, &probeStatus) && flag)
+	{
+		fflush(stdout);
+		printf("###[%d] probed from %d\n\n",myRank, probeStatus.MPI_SOURCE);
+		fflush(stdout);
+		struct{
+			int minWeight;
+			int minPath[citiesNum];
+		} result;
+
+		MPI_Recv(&result, 1, resultType, probeStatus.MPI_SOURCE, NEW_MIN_TAG, MPI_COMM_WORLD, &recvStatus);
+		fflush(stdout);
+		// printf("!!![%d] got path:\n",myRank);
+		// printPath(citiesNum, result.minPath, citiesNum, xCoord, yCoord);
+		printf("$$$[%d] got path with weight (%d) from [%d]\n\n",myRank,result.minWeight,recvStatus.MPI_SOURCE);
+		fflush(stdout);
+		if (result.minWeight < *minWeight)
+		{
+			memcpy(minPath, result.minPath, citiesNum*sizeof(int));
+			*minWeight = result.minWeight;
+
+			fflush(stdout);
+			// printf("@@@[%d] updated minPath to:\n",myRank);
+			// printPath(citiesNum, minPath, citiesNum, xCoord, yCoord);
+			printf("@@@[%d] updated minPath to weight (%d)\n\n",myRank,*minWeight);
+			fflush(stdout);
+		}
 	}
+
 	// fflush(stdout);
 	// // printf("\n@@[%d] TSPRec level: %d, currentWeight: %d, currentBound: %d, minWeight: %d\n",myRank,level,currentWeight, currentBound, minWeight);
 	// printcurrentPath(level,currentPath);
@@ -182,17 +214,26 @@ void TSPRec(
 				// // printf("\n!![%d] Found new shortest path that is %d long\n",myRank,currRes);
 				memcpy(minPath, currentPath, citiesNum*sizeof(int));
 				*minWeight = currentWeight;
-				printf("@@@[%d] broadcasting\n\n",myRank);
-				MPI_Request request;
+				// printf("@@@[%d] broadcasting\n\n",myRank);
+				MPI_Request requests[nProcs-1];
+				MPI_Status status, statuses[nProcs-1];
 				// MPI_Ibcast(minPath, 1, resultType, myRank, MPI_COMM_WORLD,&request);
 				// MPI_Ibcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, MPI_Request *request)
+
+				fflush(stdout);
+				// printf("!!![%d] sending path:\n",myRank);
+				// printPath(citiesNum, minPath, citiesNum, xCoord, yCoord);
+				printf("!!![%d] sending path with weight (%d) \n\n",myRank,*minWeight);
+				fflush(stdout);
+
 				for(int proc = 1; proc < nProcs; proc++)
 				{
-					if(proc != myRank)
-					{
-						MPI_Isend(minPath, 1, resultType, proc, NEW_MIN_TAG, MPI_COMM_WORLD, &request);
-					}
+					MPI_Isend(minWeight, 1, resultType, proc, NEW_MIN_TAG, MPI_COMM_WORLD, requests+proc);
 				}
+				// MPI_Recv(minPath, 1, resultType, myRank, NEW_MIN_TAG, MPI_COMM_WORLD, &status);
+				// printf("$$$[%d] started waitall\n\n",myRank);
+				// MPI_Waitall(nProcs-1, requests, statuses);
+				// printf("$$$[%d] done waitall\n\n",myRank);
       }
     }
     return;
